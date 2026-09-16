@@ -2,7 +2,7 @@
     "name": "elephentity/codegen",
     "description": "The Elephentity code generator: runs a project's language builders, then signs and writes what they return.",
     "type": "library",
-    "license": "MIT",
+    "license": "Apache-2.0",
     "require": {
         "php": ">=8.3",
         "symfony/console": "^7.0 || ^8.0"
