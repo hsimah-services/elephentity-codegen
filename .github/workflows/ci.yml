@@ -26,6 +26,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+
+      - name: Rust formatting
+        run: cargo +stable fmt --check
+
+      - name: Rust static analysis
+        run: cargo +stable clippy --locked --all-targets -- -D warnings
+
+      - name: Rust tests and binaries
+        run: cargo +stable test --locked
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:

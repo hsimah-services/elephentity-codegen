@@ -230,8 +230,7 @@ final class GenerateCommandTest extends TestCase
     private function invoke(array $arguments, string $input): array
     {
         $command = [
-            PHP_BINARY,
-            dirname(__DIR__, 2) . '/bin/eleph-codegen',
+            ...(getenv('ELEPH_CODEGEN_BINARY') ? [(string) getenv('ELEPH_CODEGEN_BINARY')] : [dirname(__DIR__, 2) . '/bin/eleph-codegen']),
             'generate',
             '--project',
             $this->project,

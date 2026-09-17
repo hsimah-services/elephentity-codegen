@@ -2,6 +2,11 @@
 
 The code generator for [Elephentity](https://github.com/hsimah-services/elephentity).
 
+Implemented in Rust. Build a checkout with `cargo build --release --locked`, or install
+the executable on PATH with `cargo install --path . --locked`. The `bin/eleph-codegen`
+checkout launcher uses `target/release/eleph-codegen` (or a debug build during development).
+It never falls back to PHP. Installed Cargo binaries need neither PHP nor Cargo to run.
+
 Elephentity compiles human-readable specs into an IR. This program takes it from there:
 it resolves the language builders a project has configured, runs each one, and signs and
 writes what they return.
@@ -40,19 +45,22 @@ others are for humans and for tools that need to know what a project generates.
 
 ## Working on it
 
-There is no local PHP; everything runs in a container:
-
 ```bash
-./tools/php composer ci          # style, static analysis, tests
-./tools/php composer style:fix
-./tools/php vendor/bin/phpunit --filter SomeTest
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test --locked
+./tools/php composer ci
 ```
 
-PHPStan runs at **level max** with no baseline exclusions.
+Rust sources live in `rust/`. Each builder owns its IR types and version gate; there
+is no runtime dependency on the compiler or another builder. PHP in `src/` and the
+`bin/eleph-codegen-reference` executable is retained as a migration oracle for the
+existing tests. Production entrypoints run Rust only. PHPStan still checks the reference
+and acceptance tests at level max.
 
-## Written in PHP, for now
+## Compatibility
 
-The rewrite target is Rust. The protocol is what makes that a rewrite rather than a
-rebuild: `tests/Command/GenerateCommandTest.php` drives the real binary with JSON on
-stdin and asserts bytes on disk — including a signed header's exact digest — so a
-reimplementation in another language has a suite it must satisfy unchanged.
+The JSON protocol, signature format, digest inputs, target resolution order, error
+pooling, check mode, and extension-scoped cleanup are unchanged. Native subprocess
+tests cover signed bytes, tampering, nested targets, failed builds, path traversal,
+and large requests/responses. The original PHP command tests also run against Rust.
