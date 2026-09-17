@@ -127,8 +127,7 @@ final class DescribeCommandTest extends TestCase
     private function describe(): array
     {
         $command = [
-            PHP_BINARY,
-            dirname(__DIR__, 2) . '/bin/eleph-codegen',
+            ...(getenv('ELEPH_CODEGEN_BINARY') ? [(string) getenv('ELEPH_CODEGEN_BINARY')] : [dirname(__DIR__, 2) . '/bin/eleph-codegen']),
             'describe',
             '--project',
             $this->project,
