@@ -9,7 +9,7 @@ use std::{
     process::{Command, Stdio},
 };
 type Result<T> = std::result::Result<T, String>;
-const IR: &str = "1.1";
+const IR: &str = "1.2";
 fn string(v: &Value) -> &str {
     v.as_str().unwrap_or("")
 }

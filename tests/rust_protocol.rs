@@ -23,10 +23,10 @@ fn invoke(args: &[&str], request: &Value) -> std::process::Output {
     output
 }
 fn request() -> Value {
-    json!({"elephentity":1,"irVersion":"1.1","schema":{"opaque":"the orchestrator must not inspect this"}})
+    json!({"elephentity":1,"irVersion":"1.2","schema":{"opaque":"the orchestrator must not inspect this"}})
 }
 fn response() -> Value {
-    json!({"elephentity":1,"irVersion":"1.1","headerStyle":"php","extensions":["php"],"files":[{"path":"Post.php","body":"namespace Fixture;\n\nfinal class Post\n{\n}\n"}],"errors":[]})
+    json!({"elephentity":1,"irVersion":"1.2","headerStyle":"php","extensions":["php"],"files":[{"path":"Post.php","body":"namespace Fixture;\n\nfinal class Post\n{\n}\n"}],"errors":[]})
 }
 #[cfg(unix)]
 fn builder(root: &Path, name: &str, response: &Value, output_first: bool) {
@@ -114,13 +114,13 @@ fn pools_errors_before_writing_any_target() {
     builder(
         root,
         "bad-a",
-        &json!({"elephentity":1,"irVersion":"1.1","headerStyle":"php","errors":["first failure"]}),
+        &json!({"elephentity":1,"irVersion":"1.2","headerStyle":"php","errors":["first failure"]}),
         false,
     );
     builder(
         root,
         "bad-b",
-        &json!({"elephentity":1,"irVersion":"1.1","headerStyle":"php","errors":["second failure"]}),
+        &json!({"elephentity":1,"irVersion":"1.2","headerStyle":"php","errors":["second failure"]}),
         false,
     );
     config(
