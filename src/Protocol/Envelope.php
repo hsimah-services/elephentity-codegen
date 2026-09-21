@@ -49,7 +49,7 @@ final readonly class Envelope
      * `assertVersions()` is what turns a disagreement into a refusal — in both
      * directions, at both ends.
      */
-    public const IR_VERSION = '1.1';
+    public const IR_VERSION = '1.2';
 
     /**
      * The two things a builder can be asked for.
