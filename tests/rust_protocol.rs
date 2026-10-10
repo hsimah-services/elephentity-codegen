@@ -61,6 +61,38 @@ fn rejects_unsupported_compiler_version() {
 }
 #[test]
 #[cfg(unix)]
+fn rejects_output_aliases_before_writing() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    fs::create_dir(root.join("generated")).unwrap();
+    std::os::unix::fs::symlink(root.join("generated"), root.join("alias")).unwrap();
+    fs::write(root.join("generated/keep.php"), "keep").unwrap();
+    builder(root, "builder", &response(), false);
+    for alias in [
+        "./generated",
+        "unused/../generated",
+        "alias",
+        root.join("generated").to_str().unwrap(),
+    ] {
+        config(
+            root,
+            json!({"a":{"output":"generated","builder":"./builder"},"b":{"output":alias,"builder":"./builder"}}),
+        );
+        let output = invoke(
+            &["generate", "--project", root.to_str().unwrap()],
+            &request(),
+        );
+        assert_eq!(output.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("all write to"));
+        assert_eq!(
+            fs::read_to_string(root.join("generated/keep.php")).unwrap(),
+            "keep"
+        );
+        assert!(!root.join("generated/Post.php").exists());
+    }
+}
+#[test]
+#[cfg(unix)]
 fn signs_checks_and_preserves_nested_targets() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -68,7 +100,7 @@ fn signs_checks_and_preserves_nested_targets() {
     builder(root, "builder", &response(), false);
     config(
         root,
-        json!({"php":{"output":"generated","builder":"./builder"},"nested":{"output":"generated/nested","builder":"./builder"}}),
+        json!({"php":{"output":"./generated","builder":"./builder"},"nested":{"output":"generated/unused/../nested","builder":"./builder"}}),
     );
     let output = invoke(&["generate", "--project", path], &request());
     assert!(

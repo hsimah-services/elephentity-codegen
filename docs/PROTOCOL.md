@@ -106,7 +106,7 @@ payload.
 - `target` — the key this target is configured under.
 - `config` — your target's block from `eleph.json`, minus nothing. Nothing upstream
   knows what your settings mean; validate them yourself and report problems in `errors`.
-- `outputDirectory` — where your files will land, relative to the project. Informational:
+- `outputDirectory` — the resolved absolute directory where your files will land. Informational:
   the paths you return are relative to it.
 - `schema` — the IR.
 
@@ -212,7 +212,8 @@ itself — so a target without one is a target nothing can produce, and `eleph.j
 refuses it when it loads.
 
 Every target needs **its own output directory**. Two targets sharing one is refused,
-because generating either would delete the other's files.
+because generating either would delete the other's files. Paths are resolved against
+the project, including existing symlinks and `.`/`..` segments, before checking ownership.
 
 One target's directory **may sit inside another's**, and the sweep respects it. That is
 how a driver's manifests reach the tree they belong to: they are PHP, loaded by the PHP
