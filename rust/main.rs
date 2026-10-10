@@ -5,7 +5,7 @@ use std::{
     collections::BTreeSet,
     env, fs,
     io::{self, Read, Seek, Write},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     process::{Command, Stdio},
 };
 type Result<T> = std::result::Result<T, String>;
@@ -43,6 +43,7 @@ fn parse(s: &str) -> Result<Value> {
 struct Target {
     name: String,
     output: String,
+    directory: PathBuf,
     builder: String,
     settings: Value,
 }
@@ -84,6 +85,7 @@ impl Config {
                 targets.push(Target {
                     name: name.clone(),
                     output: output.into(),
+                    directory: output_path(root, output)?,
                     builder: builder.into(),
                     settings: settings.clone(),
                 });
@@ -94,7 +96,7 @@ impl Config {
         let mut directories: Map<String, Value> = Map::new();
         for t in &targets {
             directories
-                .entry(t.output.trim_end_matches('/').to_owned())
+                .entry(t.directory.to_string_lossy().into_owned())
                 .or_insert(json!([]))
                 .as_array_mut()
                 .unwrap()
@@ -120,15 +122,14 @@ impl Config {
         })
     }
     fn reserved(&self, target: &Target) -> Vec<String> {
-        let prefix = format!("{}/", target.output.trim_end_matches('/'));
         self.targets
             .iter()
             .filter(|t| t.name != target.name)
             .filter_map(|t| {
-                t.output
-                    .trim_end_matches('/')
-                    .strip_prefix(&prefix)
-                    .map(str::to_owned)
+                t.directory
+                    .strip_prefix(&target.directory)
+                    .ok()
+                    .map(|p| p.to_string_lossy().into_owned())
             })
             .collect()
     }
@@ -179,6 +180,30 @@ impl Config {
         }
         Err(format!("No builder \"{}\" for target \"{}\". Looked in:\n  {}\nInstall it and put it where one of those points; Elephentity does not fetch builders.", target.builder, target.name, looked.join("\n  ")))
     }
+}
+// Resolve existing symlinks before walking parents; new directories need no mkdir to compare.
+fn output_path(root: &str, output: &str) -> Result<PathBuf> {
+    let root = fs::canonicalize(root).map_err(|e| format!("Cannot resolve project {root}: {e}"))?;
+    let mut resolved = PathBuf::new();
+    for component in root.join(output).components() {
+        match component {
+            Component::ParentDir => {
+                resolved.pop();
+            }
+            Component::CurDir => {}
+            _ => {
+                resolved.push(component.as_os_str());
+                match fs::canonicalize(&resolved) {
+                    Ok(path) => resolved = path,
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+                    Err(e) => {
+                        return Err(format!("Cannot resolve output {}: {e}", resolved.display()))
+                    }
+                }
+            }
+        }
+    }
+    Ok(resolved)
 }
 fn exchange(path: &Path, request: &Value) -> Result<Value> {
     // A temporary input file and concurrently drained output streams avoid pipe deadlocks.
@@ -511,7 +536,7 @@ fn run() -> Result<i32> {
             );
             continue;
         }
-        let output = format!("{}/{}", root.trim_end_matches('/'), target.output);
+        let output = target.directory.to_string_lossy().into_owned();
         let payload = if command == "describe" {
             json!({"elephentity": 1, "irVersion": IR, "request": "describe", "target": target.name})
         } else {
