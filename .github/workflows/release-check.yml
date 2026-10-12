@@ -1,0 +1,32 @@
+name: Release check
+
+# Builds, packages and verifies the release archives without publishing anything, so a
+# change to the release workflow (or to what it builds) is proven before a tag is pushed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release*.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust/**'
+  pull_request:
+    paths:
+      - '.github/workflows/release*.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  binaries:
+    uses: ./.github/workflows/release-binary.yml
+    with:
+      binary: eleph-codegen
