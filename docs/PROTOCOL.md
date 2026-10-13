@@ -228,6 +228,14 @@ the tree it left out.
 2. `tools/builders/<builder>` — override the directory with a top-level `"builders"` key;
 3. anywhere on `PATH`.
 
+**A builder may carry a pin: `"builder": "eleph-gen-csharp@0.1.0"`.** The `@version` is for
+`eleph install`, which fetches that release into `tools/builders/`; this program only strips it
+and looks for `eleph-gen-csharp`, so it still fetches nothing and checks nothing about the
+version. A `builder` containing a `/` is a path and is never split (an `@` is legal in one).
+`eleph-codegen targets` reports the `builder` as written, and the optional `"source"` of the
+target (`"owner/repo"`, where its releases are published, for a builder `eleph install` does not
+know). `source` belongs to this program and the installer: it is not passed on to the builder.
+
 How your builder gets there is your business: `composer require`, `npm install`, a git
 checkout, a symlink, a downloaded binary. This is not a package manager and will not
 become one. Make it executable — a non-executable file at the right path is the most

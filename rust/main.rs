@@ -47,6 +47,34 @@ struct Target {
     builder: String,
     settings: Value,
 }
+impl Target {
+    /// What to look for on disk. `"eleph-gen-csharp@0.1.0"` pins a release for `eleph install`
+    /// and is found as `eleph-gen-csharp`; a path is a path and is never split, because `@` is
+    /// legal in one.
+    fn program(&self) -> &str {
+        match self.builder.split_once('@') {
+            Some((name, version))
+                if !self.builder.contains('/') && !name.is_empty() && !version.is_empty() =>
+            {
+                name
+            }
+            _ => &self.builder,
+        }
+    }
+    /// The settings a builder is handed: everything but the keys this program owns.
+    fn config(&self) -> Value {
+        let mut settings = self.settings.clone();
+        if let Some(settings) = settings.as_object_mut() {
+            settings.remove("source");
+        }
+        settings
+    }
+    /// Where a pinned builder's releases are published, when the project says so instead of
+    /// relying on the installer's table of known builders. Never sent to a builder.
+    fn source(&self) -> Option<&str> {
+        self.settings["source"].as_str().filter(|s| !s.is_empty())
+    }
+}
 struct Config {
     spec: String,
     targets: Vec<Target>,
@@ -148,13 +176,13 @@ impl Config {
             let p = format!(
                 "{root}/{}/{}",
                 self.builders.trim_matches('/'),
-                target.builder
+                target.program()
             );
             looked.push(p.clone());
             candidates.push(PathBuf::from(p));
             for dir in env::split_paths(&env::var_os("PATH").unwrap_or_default()) {
                 if !dir.as_os_str().is_empty() {
-                    candidates.push(dir.join(&target.builder));
+                    candidates.push(dir.join(target.program()));
                 }
             }
             looked.push("anywhere on PATH".into());
@@ -178,7 +206,7 @@ impl Config {
             }
             return Ok(path);
         }
-        Err(format!("No builder \"{}\" for target \"{}\". Looked in:\n  {}\nInstall it and put it where one of those points; Elephentity does not fetch builders.", target.builder, target.name, looked.join("\n  ")))
+        Err(format!("No builder \"{}\" for target \"{}\". Looked in:\n  {}\nInstall it and put it where one of those points; Elephentity does not fetch builders. (`eleph install` places a builder pinned as \"name@version\" in eleph.json.)", target.program(), target.name, looked.join("\n  ")))
     }
 }
 // Resolve existing symlinks before walking parents; new directories need no mkdir to compare.
@@ -470,10 +498,11 @@ fn run() -> Result<i32> {
             .targets
             .iter()
             .map(|t| {
-                (
-                    t.name.clone(),
-                    json!({"output": t.output, "builder": t.builder}),
-                )
+                let mut described = json!({"output": t.output, "builder": t.builder});
+                if let Some(source) = t.source() {
+                    described["source"] = json!(source);
+                }
+                (t.name.clone(), described)
             })
             .collect();
         println!("{}", json!({"spec": config.spec, "targets": targets}));
@@ -540,7 +569,7 @@ fn run() -> Result<i32> {
         let payload = if command == "describe" {
             json!({"elephentity": 1, "irVersion": IR, "request": "describe", "target": target.name})
         } else {
-            json!({"elephentity": 1, "irVersion": IR, "request": "generate", "target": target.name, "config": target.settings, "outputDirectory": output, "schema": request["schema"]})
+            json!({"elephentity": 1, "irVersion": IR, "request": "generate", "target": target.name, "config": target.config(), "outputDirectory": output, "schema": request["schema"]})
         };
         let response = match exchange(&path, &payload) {
             Ok(r) => r,

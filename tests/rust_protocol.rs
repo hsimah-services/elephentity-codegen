@@ -199,3 +199,83 @@ fn rejects_paths_outside_output_and_forwards_large_payloads_without_deadlock() {
     );
     assert!(fs::metadata(root.join("generated/Post.php")).unwrap().len() > 256 * 1024);
 }
+
+#[test]
+#[cfg(unix)]
+fn a_pinned_builder_is_found_without_its_version_and_source_is_kept_from_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let path = root.to_str().unwrap();
+    fs::create_dir_all(root.join("tools/builders")).unwrap();
+    // The script reports the config it was handed, so the test can see what reached a builder.
+    builder(
+        &root.join("tools/builders"),
+        "eleph-gen-fixture",
+        &response(),
+        false,
+    );
+    config(
+        root,
+        json!({"php":{"output":"generated","builder":"eleph-gen-fixture@1.2.3","source":"owner/repo","flag":true}}),
+    );
+
+    let targets = invoke(&["targets", "--project", path], &request());
+    let described: Value = serde_json::from_slice(&targets.stdout).unwrap();
+
+    assert_eq!(
+        described["targets"]["php"],
+        json!({"output":"generated","builder":"eleph-gen-fixture@1.2.3","source":"owner/repo"})
+    );
+
+    let output = invoke(&["generate", "--project", path], &request());
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(root.join("generated/Post.php").exists());
+}
+
+#[test]
+#[cfg(unix)]
+fn a_path_containing_an_at_sign_is_never_split() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let path = root.to_str().unwrap();
+    fs::create_dir_all(root.join("node_modules/@scope")).unwrap();
+    builder(&root.join("node_modules/@scope"), "gen", &response(), false);
+    config(
+        root,
+        json!({"php":{"output":"generated","builder":"node_modules/@scope/gen"}}),
+    );
+
+    let output = invoke(&["generate", "--project", path], &request());
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn a_missing_pinned_builder_is_reported_by_its_bare_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    config(
+        root,
+        json!({"php":{"output":"generated","builder":"eleph-gen-nothing@9.9.9"}}),
+    );
+
+    let output = invoke(
+        &["generate", "--project", root.to_str().unwrap()],
+        &request(),
+    );
+    let said = String::from_utf8_lossy(&output.stdout);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(said.contains("No builder \"eleph-gen-nothing\""), "{said}");
+    assert!(said.contains("tools/builders/eleph-gen-nothing"), "{said}");
+    assert!(said.contains("`eleph install`"), "{said}");
+}
