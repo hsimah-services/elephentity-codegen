@@ -279,3 +279,47 @@ fn a_missing_pinned_builder_is_reported_by_its_bare_name() {
     assert!(said.contains("tools/builders/eleph-gen-nothing"), "{said}");
     assert!(said.contains("`eleph install`"), "{said}");
 }
+
+#[test]
+#[cfg(unix)]
+fn describe_is_given_the_targets_config_without_the_keys_this_program_owns() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let path = root.to_str().unwrap();
+    fs::create_dir_all(root.join("tools/builders")).unwrap();
+    // Records what it was asked, then answers describe.
+    let script = root.join("tools/builders/eleph-gen-recorder");
+    fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\ncat > '{}'\nprintf '%s' '{{\"elephentity\":1,\"irVersion\":\"1.2\",\"provides\":{{}}}}'\n",
+            root.join("asked.json").display()
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    config(
+        root,
+        json!({"cs":{"output":"generated","builder":"eleph-gen-recorder@1.0.0","source":"owner/repo","check":["dotnet","test"]}}),
+    );
+
+    let output = invoke(&["describe", "--project", path], &request());
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let asked: Value = serde_json::from_slice(&fs::read(root.join("asked.json")).unwrap()).unwrap();
+
+    assert_eq!(asked["request"], "describe");
+    assert_eq!(asked["target"], "cs");
+    assert_eq!(
+        asked["config"],
+        json!({"output":"generated","builder":"eleph-gen-recorder@1.0.0","check":["dotnet","test"]})
+    );
+    assert!(asked.get("schema").is_none());
+}
