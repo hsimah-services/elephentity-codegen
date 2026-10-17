@@ -48,11 +48,19 @@ Exit non-zero to fail the build; whatever you wrote to stderr is shown to the us
 ## The describe request
 
 ```json
-{ "elephentity": 1, "irVersion": "1.2", "request": "describe", "target": "ts" }
+{ "elephentity": 1, "irVersion": "1.2", "request": "describe", "target": "ts",
+  "config": { "output": "web/generated", "style": "esm" } }
 ```
 
-No schema and no config: a description is what the compiler needs in order to compile,
-so it has to be answerable before a spec has been read.
+No schema: a description is what the compiler needs in order to compile, so it has to be
+answerable before a spec has been read.
+
+**`config` is optional and additive.** It is the same object `generate` receives (the
+target's keys in `eleph.json`, minus the ones this program owns), because some of what a
+builder provides is the project's to say. A C# builder's `provides.check` is the command
+for the project's own contract-test project, which only the project knows. A builder that
+needs nothing from it ignores it, and one that reads it must still answer when it is absent
+and when it is unusable: reporting a bad configuration is `generate`'s job.
 
 ## The describe response
 

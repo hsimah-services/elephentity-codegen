@@ -567,7 +567,7 @@ fn run() -> Result<i32> {
         }
         let output = target.directory.to_string_lossy().into_owned();
         let payload = if command == "describe" {
-            json!({"elephentity": 1, "irVersion": IR, "request": "describe", "target": target.name})
+            json!({"elephentity": 1, "irVersion": IR, "request": "describe", "target": target.name, "config": target.config()})
         } else {
             json!({"elephentity": 1, "irVersion": IR, "request": "generate", "target": target.name, "config": target.config(), "outputDirectory": output, "schema": request["schema"]})
         };
